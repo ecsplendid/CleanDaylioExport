@@ -130,8 +130,66 @@ namespace CleanDaylio
             // then generate a gephi chart for the matrix, first all of the values on the matrix
             // will need to be lin scaled onto the interval [0,1]
 
-            
+            var matrix = new Dictionary<string, double>();
 
+            var highest = double.MinValue;
+
+            foreach(var a in activities)
+            {
+                // use heuristic to figure out how long the attribute has been in play
+                // how long has attribute 1 been in play?
+                var a1InPlay = days.FindIndex(d => attributes[a].Data.ContainsKey(d)); 
+                
+                foreach (var a2 in activities)
+                {
+                    // how long has attribute 1 been in play?
+                    var a2InPlay = days.FindIndex(d => attributes[a2].Data.ContainsKey(d));
+
+                    var laterDayIndex = Math.Max( a1InPlay, a2InPlay );
+                    
+                   // note we will normalize by the days in play
+                    var daysInPlay = days.Count() - laterDayIndex;
+
+                    // for every day in play build up a count
+                    var normalizedValue =
+                        (double) 
+                        Enumerable
+                        .Range(laterDayIndex, daysInPlay)
+                        .Select(i => days[i])
+                        .Select(d =>
+                           attributes[a2].Data.ContainsKey(d)
+                               && attributes[a].Data.ContainsKey(d))
+                        .Count(b => b) / daysInPlay;
+                    
+                    matrix.Add( $"{a}_{a2}",  normalizedValue );
+
+                    highest = Math.Max(highest, normalizedValue);
+                    
+                }
+            }
+
+            //normalize the values onto the [0,1] interval
+            foreach(var cell in matrix.Keys.ToArray())
+            {
+                matrix[cell] = matrix[cell] / highest; 
+            }
+
+            // write out this matrix into Gephi format
+
+            const string GephiFileName = "gephi-matrix.txt";
+
+            if(File.Exists(GephiFileName))
+                File.Delete(GephiFileName);
+
+            File.AppendAllText(GephiFileName, $";{string.Join(";",activities)}\r\n" );
+
+            foreach ( var activity in activities)
+            {
+                var vals = activities
+                    .Select( a => matrix[$"{ activity }_{a}"] );
+
+                File.AppendAllText(GephiFileName, $"{activity};{string.Join(";", vals )}\r\n");
+            }
 
         }
 
