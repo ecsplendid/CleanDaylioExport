@@ -10,7 +10,7 @@ namespace CleanDaylio
 {
     class Program
     {
-        private const string containsPipeList = @",[^,]+?\|[^,]+?(?=,)";
+        private const string ContainsPipeList = @",[^,]+?\|[^,]+?(?=,)";
         
         static void Main(string[] args)     
         {
@@ -31,11 +31,11 @@ namespace CleanDaylio
             var metadataLines = file
                 // dont want the headings
                 .Skip(1)
-                .Where(l => Regex.IsMatch(l, containsPipeList));
+                .Where(l => Regex.IsMatch(l, ContainsPipeList));
 
             var activities = metadataLines
                 // get the pipe delimited tag bit
-                .Select(l => Regex.Match(l, containsPipeList).Value)
+                .Select(l => Regex.Match(l, ContainsPipeList).Value)
                 .SelectMany(c => Regex.Split(c, @"\|"))
                 .Select( w => w.Replace(",", string.Empty).Trim() )
                 .Distinct()
@@ -58,7 +58,7 @@ namespace CleanDaylio
                 var atts =
                     Regex
                         .Split(
-                            Regex.Match(line, containsPipeList).Value,
+                            Regex.Match(line, ContainsPipeList).Value,
                             @"\|")
                         // clean the tags up
                         .Select(w => w.Replace(",", string.Empty).Trim())
@@ -87,17 +87,17 @@ namespace CleanDaylio
 
             // delete the output file if it exists
 
-            const string outputFile = "flatmatrix.csv";
+            const string OutputFile = "flatmatrix.csv";
 
-            File.Delete(outputFile);
+            File.Delete(OutputFile);
 
             // for each day, write out all the attributes to a file
 
             // write out the headers
 
             File.AppendAllText(
-                outputFile,
-                $"date, mood, {String.Join(",", moods)}, {String.Join(",", activities)}\r\n"
+                OutputFile,
+                $"date, mood, {string.Join(",", moods)}, {string.Join(",", activities)}\r\n"
                 ); 
 
             foreach ( var day in days)
@@ -111,14 +111,14 @@ namespace CleanDaylio
                                         && attributes["mood"].Data[day] == mood
                                         ? "1" : "0");
 
-                File.AppendAllText(outputFile, day.ToShortDateString() );
-                File.AppendAllText(outputFile, "," );
-                File.AppendAllText(outputFile, GetMoodCode( attributes["mood"].Data[day], moods ) );
-                File.AppendAllText(outputFile, "," );
-                File.AppendAllText(outputFile, String.Join(",", modeBits));
-                File.AppendAllText(outputFile, ",");
-                File.AppendAllText(outputFile, String.Join( ",", activityMap ) );
-                File.AppendAllText(outputFile,"\r\n");
+                File.AppendAllText(OutputFile, day.ToShortDateString() );
+                File.AppendAllText(OutputFile, "," );
+                File.AppendAllText(OutputFile, GetMoodCode( attributes["mood"].Data[day], moods ) );
+                File.AppendAllText(OutputFile, "," );
+                File.AppendAllText(OutputFile, string.Join(",", modeBits));
+                File.AppendAllText(OutputFile, ",");
+                File.AppendAllText(OutputFile, string.Join( ",", activityMap ) );
+                File.AppendAllText(OutputFile,"\r\n");
             }
 
             // some ideas about how to build the correlation matrix
@@ -130,7 +130,7 @@ namespace CleanDaylio
             // then generate a gephi chart for the matrix, first all of the values on the matrix
             // will need to be lin scaled onto the interval [0,1]
 
-            foreach
+            
 
 
         }
