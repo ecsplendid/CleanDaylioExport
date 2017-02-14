@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -14,7 +15,7 @@ namespace CleanDaylio
         
         static void Main(string[] args)     
         {
-            // these can be parameterised
+            // these can be parametrized
             var moods = new[] {
                 "fugly",
                 "awful",
@@ -42,12 +43,12 @@ namespace CleanDaylio
                 .ToList();
 
             // use this data structure for assigning the data
-            var attributes = activities
+            var data = activities
                 .Select(t => new Attribute { Name = t })
                 .ToDictionary( a => a.Name, a => a );
 
             // manually add one in for the mood
-            attributes.Add("mood", new Attribute { Name = "mood" });
+            data.Add("mood", new Attribute { Name = "mood" });
 
             // now let's go through the data and add/reference the attributes 
             foreach ( var line in metadataLines)
@@ -62,7 +63,7 @@ namespace CleanDaylio
                             @"\|")
                         // clean the tags up
                         .Select(w => w.Replace(",", string.Empty).Trim())
-                        .Select(a => attributes[a]);
+                        .Select(a => data[a]);
 
                 foreach (var att in atts.Where(
                     att => !att.Data.ContainsKey(date)))
@@ -71,14 +72,14 @@ namespace CleanDaylio
                 }
 
                 // do the mood bit too
-                if (!attributes["mood"].Data.ContainsKey(date))
-                    attributes["mood"].Data.Add(date, sl[3]);
+                if (!data["mood"].Data.ContainsKey(date))
+                    data["mood"].Data.Add(date, sl[3]);
             }
              
             // last piece of the puzzle
             // we need to know all of the distinct dates to select out
 
-            var days = attributes
+            var days = data
                 .Values
                 .SelectMany(v => v.Data.Keys)
                 .Distinct()
@@ -103,17 +104,17 @@ namespace CleanDaylio
             foreach ( var day in days)
             {
                 var activityMap = activities
-                        .Select(a => attributes[a].Data.ContainsKey(day)
+                        .Select(a => data[a].Data.ContainsKey(day)
                                         ? "1":"0" );
 
                 var modeBits = 
-                    moods.Select(mood => attributes["mood"].Data.ContainsKey(day)
-                                        && attributes["mood"].Data[day] == mood
+                    moods.Select(mood => data["mood"].Data.ContainsKey(day)
+                                        && data["mood"].Data[day] == mood
                                         ? "1" : "0");
 
                 File.AppendAllText(OutputFile, day.ToShortDateString() );
                 File.AppendAllText(OutputFile, "," );
-                File.AppendAllText(OutputFile, GetMoodCode( attributes["mood"].Data[day], moods ) );
+                File.AppendAllText(OutputFile, GetMoodCode( data["mood"].Data[day], moods ) );
                 File.AppendAllText(OutputFile, "," );
                 File.AppendAllText(OutputFile, string.Join(",", modeBits));
                 File.AppendAllText(OutputFile, ",");
@@ -134,16 +135,16 @@ namespace CleanDaylio
 
             var highest = double.MinValue;
 
-            foreach(var a in activities)
+            foreach(var a1 in activities)
             {
                 // use heuristic to figure out how long the attribute has been in play
                 // how long has attribute 1 been in play?
-                var a1InPlay = days.FindIndex(d => attributes[a].Data.ContainsKey(d)); 
+                var a1InPlay = days.FindIndex(d => data[a1].Data.ContainsKey(d)); 
                 
                 foreach (var a2 in activities)
                 {
                     // how long has attribute 1 been in play?
-                    var a2InPlay = days.FindIndex(d => attributes[a2].Data.ContainsKey(d));
+                    var a2InPlay = days.FindIndex(d => data[a2].Data.ContainsKey(d));
 
                     var laterDayIndex = Math.Max( a1InPlay, a2InPlay );
                     
@@ -157,11 +158,11 @@ namespace CleanDaylio
                         .Range(laterDayIndex, daysInPlay)
                         .Select(i => days[i])
                         .Select(d =>
-                           attributes[a2].Data.ContainsKey(d)
-                               && attributes[a].Data.ContainsKey(d))
+                           data[a2].Data.ContainsKey(d)
+                               && data[a1].Data.ContainsKey(d))
                         .Count(b => b) / daysInPlay;
                     
-                    matrix.Add( $"{a}_{a2}",  normalizedValue );
+                    matrix.Add( $"{a1}_{a2}",  normalizedValue );
 
                     highest = Math.Max(highest, normalizedValue);
                     
@@ -176,21 +177,31 @@ namespace CleanDaylio
 
             // write out this matrix into Gephi format
 
-            const string GephiFileName = "gephi-matrix.txt";
+            const string GephiFileName = "gephi-matrix.csv";
 
             if(File.Exists(GephiFileName))
                 File.Delete(GephiFileName);
 
-            File.AppendAllText(GephiFileName, $";{string.Join(";",activities)}\r\n" );
+            File.AppendAllText(GephiFileName, $";{string.Join(";",activities.Select(GetNiceName))}\r\n" );
 
             foreach ( var activity in activities)
             {
                 var vals = activities
                     .Select( a => matrix[$"{ activity }_{a}"] );
 
-                File.AppendAllText(GephiFileName, $"{activity};{string.Join(";", vals )}\r\n");
+                File.AppendAllText(GephiFileName, $"{GetNiceName(activity)};{string.Join(";", vals )}\r\n");
             }
 
+        }
+
+        /// <summary>
+        /// replace any weird chars that might mess up gephi
+        /// </summary>
+        /// <param name="activity"></param>
+        static string GetNiceName(
+            string activity)
+        {
+            return Regex.Replace(activity, @"[^\w\d]",string.Empty);
         }
 
         public static string GetMoodCode(string moodString, string[] moods)
