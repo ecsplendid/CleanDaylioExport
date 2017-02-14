@@ -139,28 +139,51 @@ namespace CleanDaylio
             {
                 // use heuristic to figure out how long the attribute has been in play
                 // how long has attribute 1 been in play?
-                var a1InPlay = days.FindIndex(d => data[a1].Data.ContainsKey(d)); 
+                var a1DaysInPlay = GetDaysInPlay(
+                    days,
+                    data,
+                    a1); 
                 
-                foreach (var a2 in activities)
+                foreach (var a2 in activities.Where(a => a != a1))
                 {
                     // how long has attribute 1 been in play?
-                    var a2InPlay = days.FindIndex(d => data[a2].Data.ContainsKey(d));
+                    var a2DaysInPlay = GetDaysInPlay(
+                    days,
+                    data,
+                    a2);
 
-                    var laterDayIndex = Math.Max( a1InPlay, a2InPlay );
+                    // need to know the earlier pair of dates in the two sequences
+                    // so any date before this we discard
+                    var allDays = a1DaysInPlay
+                        .Concat(a2DaysInPlay)
+                        .ToList();
+
+                    var startFrom = allDays
+                        .OrderBy(d => d)
+                        .GroupBy(d => d)
+                        .FirstOrDefault(g => g.Count() > 1)
+                        ?.Key;
+
+                    if (startFrom == null)
+                        continue;
                     
-                   // note we will normalize by the days in play
-                    var daysInPlay = days.Count() - laterDayIndex;
-
                     // for every day in play build up a count
-                    var normalizedValue =
-                        (double) 
-                        Enumerable
-                        .Range(laterDayIndex, daysInPlay)
-                        .Select(i => days[i])
-                        .Select(d =>
+                    var daysInPlay = allDays
+                        .Distinct()
+                        .Where(d => d >= startFrom)
+                        .ToArray();
+
+                    if(!daysInPlay.Any())
+                        continue;
+
+                    var numberMatchingDays = daysInPlay
+                        .Count(d =>
                            data[a2].Data.ContainsKey(d)
-                               && data[a1].Data.ContainsKey(d))
-                        .Count(b => b) / daysInPlay;
+                               && data[a1].Data.ContainsKey(d));
+                    
+                    var normalizedValue =
+                        (double)
+                        numberMatchingDays / daysInPlay.Count();
                     
                     matrix.Add( $"{a1}_{a2}",  normalizedValue );
 
@@ -187,11 +210,28 @@ namespace CleanDaylio
             foreach ( var activity in activities)
             {
                 var vals = activities
-                    .Select( a => matrix[$"{ activity }_{a}"] );
+                    .Select( a => matrix.ContainsKey($"{ activity }_{a}") ? matrix[$"{ activity }_{a}"] : 0d );
 
                 File.AppendAllText(GephiFileName, $"{GetNiceName(activity)};{string.Join(";", vals )}\r\n");
             }
 
+        }
+
+        /// <summary>
+        /// out of all the days, which ones was the feature in play from i.e. been used once before
+        /// </summary>
+        /// <param name="days"></param>
+        /// <param name="data"></param>
+        /// <param name="activityKey"></param>
+        /// <returns></returns>
+        static IEnumerable<DateTime> GetDaysInPlay(
+            List<DateTime> days,
+            IReadOnlyDictionary<string, Attribute> data,
+            string activityKey)
+        {
+            return Enumerable
+                .Range(0, days.Count() - days.FindIndex(d => data[activityKey].Data.ContainsKey(d)))
+                .Select(i => days[i]);
         }
 
         /// <summary>
