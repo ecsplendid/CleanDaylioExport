@@ -73,7 +73,7 @@ namespace CleanDaylio
 
                 // do the mood bit too
                 if (!data["mood"].Data.ContainsKey(date))
-                    data["mood"].Data.Add(date, sl[3]);
+                    data["mood"].Data.Add(date, sl[4]);
             }
              
             // last piece of the puzzle
